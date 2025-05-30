@@ -1,2 +1,2 @@
-var text = `Hello from Deloitte`
+var text = `Hello`
 console.log(text)
