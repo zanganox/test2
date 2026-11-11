@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Leak2Path - alicorp.com.pe</title>
+<style>
+:root{--bg:#0b1120;--panel:#141e30;--border:#2b3d57;--text:#e7eef8;--muted:#9aacc2;--cyan:#38bdf8;--violet:#818cf8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Segoe UI,Arial,sans-serif}
+main{max-width:1400px;margin:auto;padding:30px 24px 60px}
+header{padding:30px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(120deg,#14243c,#203653);margin-bottom:20px}
+.eyebrow{color:var(--cyan);font-size:11px;letter-spacing:2px;font-weight:800}
+h1{font-size:34px;margin:10px 0 4px}
+.muted,small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:13px;margin:18px 0}
+article,.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px}
+article b{display:block;font-size:29px;margin-top:12px}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+h2{font-size:18px;margin:0 0 16px}
+.bar{margin:13px 0;font-size:12px;display:grid;grid-template-columns:110px 35px 1fr;gap:8px;align-items:center}
+.bar i{height:8px;background:#293a52;border-radius:10px;overflow:hidden}
+.bar em{height:100%;display:block;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+.decision{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:11px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{color:var(--muted)}
+.path-copy{min-width:360px;max-width:580px;line-height:1.5}
+.warning{margin-top:18px;padding:15px;border:1px solid #65532f;background:#2b251a;color:#f4d99e;border-radius:12px;font-size:12px}
+footer{border-top:1px solid var(--border);margin-top:24px;padding-top:14px;color:var(--muted);font-size:11px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div class="eyebrow">DETERMINISTIC INTELLIGENCE ENGINE · V5.4.0</div>
+<h1>Leak2Path</h1>
+<b>alicorp.com.pe</b>
+<p class="muted">Stealer Logs → Identity Correlation → Attack-Path Hypotheses</p>
+<small>Generated: 2026-11-10T19:04:14 · Search: tgrep_textscan_direct</small>
+</header>
+<section class="grid"><article><small>RAW occurrences</small><b>39</b></article><article><small>Unique RAW lines</small><b>26</b></article><article><small>Parsed unique lines</small><b>26</b></article><article><small>Normalized records</small><b>26</b></article><article><small>Corporate identities</small><b>13</b></article><article><small>Findings</small><b>24</b></article><article><small>Attack-path hypotheses</small><b>9</b></article></section>
+<section class="layout">
+<div class="panel">
+<h2>Rule distribution</h2>
+<div class="bar"><span>CORR-001</span><b>2</b><i><em style="width:18%"></em></i></div><div class="bar"><span>CORR-002</span><b>1</b><i><em style="width:9%"></em></i></div><div class="bar"><span>CRED-001</span><b>11</b><i><em style="width:100%"></em></i></div><div class="bar"><span>EXT-001</span><b>3</b><i><em style="width:27%"></em></i></div><div class="bar"><span>EXT-002</span><b>1</b><i><em style="width:9%"></em></i></div><div class="bar"><span>ID-003</span><b>1</b><i><em style="width:9%"></em></i></div><div class="bar"><span>SVC-002</span><b>5</b><i><em style="width:45%"></em></i></div>
+</div>
+<div class="panel">
+<h2>Occurrence decisions</h2>
+<div class="decision"><span>finding</span><b>39</b></div>
+</div>
+</section>
+<section class="panel" style="margin-bottom:16px">
+<h2>Deterministic findings</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Rule</th><th>Finding</th><th>Identity</th><th>Confidence</th><th>Status</th><th>Evidence refs</th></tr></thead>
+<tbody><tr><td>SVC-002</td><td>Non-email identifier observed on an in-scope service</td><td>2053585787</td><td>low</td><td>observed</td><td>1</td></tr><tr><td>SVC-002</td><td>Non-email identifier observed on an in-scope service</td><td>52800jhidalgoa</td><td>low</td><td>observed</td><td>1</td></tr><tr><td>CORR-001</td><td>Recurring corporate identifier across distinct observations</td><td>aarredondop@alicorp.com.pe</td><td>medium</td><td>observed</td><td>13</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>aarredondop@alicorp.com.pe</td><td>medium</td><td>observed</td><td>12</td></tr><tr><td>EXT-001</td><td>Potential exposure of a corporate identity on a third-party application</td><td>aarredondop@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>aarrendondop@alicorp.com.pe</td><td>medium</td><td>observed</td><td>2</td></tr><tr><td>SVC-002</td><td>Non-email identifier observed on an in-scope service</td><td>acabezam</td><td>low</td><td>observed</td><td>1</td></tr><tr><td>CORR-002</td><td>Candidate relation from exact local-part match</td><td>apenag@alicorp.com.pe</td><td>low</td><td>candidate</td><td>2</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>apenag@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>EXT-002</td><td>Possible third-party account linked by exact local-part match</td><td>apenag@alicorp.com.pe</td><td>low</td><td>candidate</td><td>1</td></tr><tr><td>CORR-001</td><td>Recurring corporate identifier across distinct observations</td><td>arioso@alicorp.com.pe</td><td>medium</td><td>observed</td><td>2</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>arioso@alicorp.com.pe</td><td>medium</td><td>observed</td><td>2</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>ariosor@alicorp.com.pe</td><td>medium</td><td>observed</td><td>2</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>cegusquiza@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>EXT-001</td><td>Potential exposure of a corporate identity on a third-party application</td><td>cvallea@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>dcondezoa@alicorp.com.pe</td><td>medium</td><td>observed</td><td>3</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>fnurenap@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>jbonifaciob@alicorp.com.pe</td><td>medium</td><td>observed</td><td>4</td></tr><tr><td>ID-003</td><td>Numeric username family candidate</td><td>p#@aliisiweb6.alicorp.com.pe</td><td>low</td><td>candidate</td><td>1</td></tr><tr><td>SVC-002</td><td>Non-email identifier observed on an in-scope service</td><td>p25760</td><td>low</td><td>observed</td><td>1</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>rcastror@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>EXT-001</td><td>Potential exposure of a corporate identity on a third-party application</td><td>rgomeza@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>CRED-001</td><td>Corporate credential pair observed; source service not identified</td><td>soporteinstituciones@alicorp.com.pe</td><td>medium</td><td>observed</td><td>1</td></tr><tr><td>SVC-002</td><td>Non-email identifier observed on an in-scope service</td><td>yohanna.portugales</td><td>low</td><td>observed</td><td>1</td></tr></tbody>
+</table>
+</div>
+</section>
+<section class="panel">
+<h2>Attack-path hypotheses</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Hypothesis</th><th>Corporate identity</th><th>External service / endpoint</th><th>Potential attack path, limitations and validation</th><th>Status</th></tr></thead>
+<tbody><tr><td>Identifier observed on an in-scope application<br><small>identifier_to_in_scope_application</small></td><td>2053585787</td><td>eb6.alicorp.com.pe</td><td class="path-copy">A non-email identifier was observed in a record associated with an in-scope application. Its ownership and account status are unknown.<br><small><b>Limitations:</b> This is an evidence-based relationship hypothesis, not proof of valid credentials, successful authentication, current account activity or operational access.</small><br><small><b>Validation:</b> Corroborate with an authorized service owner and application inventory. Validate access only when explicitly in scope.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Identifier observed on an in-scope application<br><small>identifier_to_in_scope_application</small></td><td>52800jhidalgoa</td><td>aliibmbpj.alicorp.com.pe</td><td class="path-copy">A non-email identifier was observed in a record associated with an in-scope application. Its ownership and account status are unknown.<br><small><b>Limitations:</b> This is an evidence-based relationship hypothesis, not proof of valid credentials, successful authentication, current account activity or operational access.</small><br><small><b>Validation:</b> Corroborate with an authorized service owner and application inventory. Validate access only when explicitly in scope.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Potencial exposición de credencial corporativa en una aplicación de terceros<br><small>observed_corporate_identity_to_external_service</small></td><td>aarredondop@alicorp.com.pe</td><td>cloud.homenetgames.com</td><td class="path-copy">Se observó un registro que asocia la identidad corporativa aarredondop@alicorp.com.pe con el servicio externo cloud.homenetgames.com. Si el par continúa vigente, podría permitir autenticación en ese servicio; si se demuestra reutilización, podría ampliar el riesgo a otras aplicaciones.<br><small><b>Limitations:</b> No se ha confirmado vigencia, autenticación exitosa, reutilización ni acceso corporativo.</small><br><small><b>Validation:</b> Identificar al responsable del servicio y corroborar el contexto de la cuenta. Cualquier validación de autenticación debe estar expresamente dentro del alcance autorizado.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Identifier observed on an in-scope application<br><small>identifier_to_in_scope_application</small></td><td>acabezam</td><td>portalcitas.alicorp.com.pe</td><td class="path-copy">A non-email identifier was observed in a record associated with an in-scope application. Its ownership and account status are unknown.<br><small><b>Limitations:</b> This is an evidence-based relationship hypothesis, not proof of valid credentials, successful authentication, current account activity or operational access.</small><br><small><b>Validation:</b> Corroborate with an authorized service owner and application inventory. Validate access only when explicitly in scope.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Posible vinculación de una cuenta externa con una identidad corporativa<br><small>candidate_localpart_alias_to_external_service</small></td><td>apenag@alicorp.com.pe</td><td>sae.car.gov.co</td><td class="path-copy">El usuario observado en sae.car.gov.co coincide exactamente con la parte local de la identidad corporativa apenag@alicorp.com.pe. La coincidencia permite priorizar una revisión, pero no establece por sí misma que ambas cuentas pertenezcan a la misma persona o compartan credenciales.<br><small><b>Limitations:</b> La coincidencia de alias no prueba misma persona, contraseña compartida ni acceso al entorno corporativo.</small><br><small><b>Validation:</b> Corroborar la relación con un inventario autorizado o el responsable de la aplicación antes de considerar esta relación como una ruta de acceso.</small></td><td>candidate_not_validated</td></tr><tr><td>Potencial exposición de credencial corporativa en una aplicación de terceros<br><small>observed_corporate_identity_to_external_service</small></td><td>cvallea@alicorp.com.pe</td><td>login.microsoftonline.com</td><td class="path-copy">Se observó un registro que asocia la identidad corporativa cvallea@alicorp.com.pe con el servicio externo login.microsoftonline.com. Si el par continúa vigente, podría permitir autenticación en ese servicio; si se demuestra reutilización, podría ampliar el riesgo a otras aplicaciones.<br><small><b>Limitations:</b> No se ha confirmado vigencia, autenticación exitosa, reutilización ni acceso corporativo.</small><br><small><b>Validation:</b> Identificar al responsable del servicio y corroborar el contexto de la cuenta. Cualquier validación de autenticación debe estar expresamente dentro del alcance autorizado.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Identifier observed on an in-scope application<br><small>identifier_to_in_scope_application</small></td><td>p25760</td><td>aliisiweb6.alicorp.com.pe</td><td class="path-copy">A non-email identifier was observed in a record associated with an in-scope application. Its ownership and account status are unknown.<br><small><b>Limitations:</b> This is an evidence-based relationship hypothesis, not proof of valid credentials, successful authentication, current account activity or operational access.</small><br><small><b>Validation:</b> Corroborate with an authorized service owner and application inventory. Validate access only when explicitly in scope.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Potencial exposición de credencial corporativa en una aplicación de terceros<br><small>observed_corporate_identity_to_external_service</small></td><td>rgomeza@alicorp.com.pe</td><td>gronocwsg01.gromero.net</td><td class="path-copy">Se observó un registro que asocia la identidad corporativa rgomeza@alicorp.com.pe con el servicio externo gronocwsg01.gromero.net. Si el par continúa vigente, podría permitir autenticación en ese servicio; si se demuestra reutilización, podría ampliar el riesgo a otras aplicaciones.<br><small><b>Limitations:</b> No se ha confirmado vigencia, autenticación exitosa, reutilización ni acceso corporativo.</small><br><small><b>Validation:</b> Identificar al responsable del servicio y corroborar el contexto de la cuenta. Cualquier validación de autenticación debe estar expresamente dentro del alcance autorizado.</small></td><td>hypothesis_not_validated</td></tr><tr><td>Identifier observed on an in-scope application<br><small>identifier_to_in_scope_application</small></td><td>yohanna.portugales</td><td>portalcitas.alicorp.com.pe</td><td class="path-copy">A non-email identifier was observed in a record associated with an in-scope application. Its ownership and account status are unknown.<br><small><b>Limitations:</b> This is an evidence-based relationship hypothesis, not proof of valid credentials, successful authentication, current account activity or operational access.</small><br><small><b>Validation:</b> Corroborate with an authorized service owner and application inventory. Validate access only when explicitly in scope.</small></td><td>hypothesis_not_validated</td></tr></tbody>
+</table>
+</div>
+</section>
+<div class="warning"><b>Interpretation:</b> Findings and paths are intelligence observations or hypotheses, not proof of valid credentials, active accounts, verified employment status or operational access. The dashboard excludes plaintext credentials. RAW evidence files may contain plaintext and must be protected.</div>
+<footer>Leak2Path · Deterministic Python Rules · Local report · No LAYA dependency</footer>
+
+<section id="l2p-relationship-graph" class="l2p-graph-section">
+  <h2>Domain–Service Relationship Map</h2>
+  <p class="l2p-graph-note">
+    8 servicios relacionados; 8 mostrados en el gráfico. Las conexiones representan observaciones correlacionadas,
+    no accesos confirmados.
+  </p>
+  <div class="l2p-graph-viewport">
+    <svg viewBox="0 0 1120 786" role="img" aria-label="Relaciones observadas entre dominio y servicios"><defs><marker id="l2pArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#6f8cac"/></marker></defs><path d="M 272 393 C 360 393, 390 96, 475 96" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="70" width="600" height="54" rx="10" fill="#17243a" stroke="#48b4a2" stroke-width="1.3"/><text x="493" y="92" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">portalcitas.alicorp.com.pe</text><text x="493" y="112" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">corporate · 2 identidad(es) · 2 evidencia(s)</text><path d="M 272 393 C 360 393, 390 178, 475 178" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="152" width="600" height="54" rx="10" fill="#17243a" stroke="#48b4a2" stroke-width="1.3"/><text x="493" y="174" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">aliibmbpj.alicorp.com.pe</text><text x="493" y="194" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">corporate · 1 identidad(es) · 1 evidencia(s)</text><path d="M 272 393 C 360 393, 390 260, 475 260" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="234" width="600" height="54" rx="10" fill="#17243a" stroke="#48b4a2" stroke-width="1.3"/><text x="493" y="256" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">aliisiweb6.alicorp.com.pe</text><text x="493" y="276" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">corporate · 1 identidad(es) · 1 evidencia(s)</text><path d="M 272 393 C 360 393, 390 342, 475 342" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="316" width="600" height="54" rx="10" fill="#17243a" stroke="#48b4a2" stroke-width="1.3"/><text x="493" y="338" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">eb6.alicorp.com.pe</text><text x="493" y="358" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">corporate · 1 identidad(es) · 1 evidencia(s)</text><path d="M 272 393 C 360 393, 390 424, 475 424" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="398" width="600" height="54" rx="10" fill="#17243a" stroke="#7e91ef" stroke-width="1.3"/><text x="493" y="420" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">cloud.homenetgames.com</text><text x="493" y="440" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">third_party · 1 identidad(es) · 1 evidencia(s)</text><path d="M 272 393 C 360 393, 390 506, 475 506" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="480" width="600" height="54" rx="10" fill="#17243a" stroke="#7e91ef" stroke-width="1.3"/><text x="493" y="502" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">gronocwsg01.gromero.net</text><text x="493" y="522" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">third_party · 1 identidad(es) · 1 evidencia(s)</text><path d="M 272 393 C 360 393, 390 588, 475 588" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="562" width="600" height="54" rx="10" fill="#17243a" stroke="#7e91ef" stroke-width="1.3"/><text x="493" y="584" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">login.microsoftonline.com</text><text x="493" y="604" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">third_party · 1 identidad(es) · 1 evidencia(s)</text><path d="M 272 393 C 360 393, 390 670, 475 670" fill="none" stroke="#6f8cac" stroke-width="1.6" marker-end="url(#l2pArrow)" opacity="0.8"/><rect x="475" y="644" width="600" height="54" rx="10" fill="#17243a" stroke="#7e91ef" stroke-width="1.3"/><text x="493" y="666" font-size="14" font-family="Segoe UI,Arial" fill="#edf3fb">sae.car.gov.co</text><text x="493" y="686" font-size="11" font-family="Segoe UI,Arial" fill="#aabbd0">third_party · 1 identidad(es) · 1 evidencia(s)</text><rect x="22" y="345" width="250" height="96" rx="14" fill="#182c46" stroke="#51a6d8" stroke-width="2"/><text x="147.0" y="383" text-anchor="middle" font-size="13" font-family="Segoe UI,Arial" fill="#a9d8fa">TARGET DOMAIN</text><text x="147.0" y="407" text-anchor="middle" font-size="14" font-weight="600" font-family="Segoe UI,Arial" fill="#ffffff">alicorp.com.pe</text></svg>
+  </div>
+  
+  <details>
+    <summary>Ver inventario de relaciones</summary>
+    <table class="l2p-graph-table"><thead><tr><th>Servicio</th><th>Alcance</th><th>Identidades</th><th>Evidencias</th></tr></thead><tbody><tr><td>portalcitas.alicorp.com.pe</td><td>corporate</td><td>2</td><td>2</td></tr><tr><td>aliibmbpj.alicorp.com.pe</td><td>corporate</td><td>1</td><td>1</td></tr><tr><td>aliisiweb6.alicorp.com.pe</td><td>corporate</td><td>1</td><td>1</td></tr><tr><td>eb6.alicorp.com.pe</td><td>corporate</td><td>1</td><td>1</td></tr><tr><td>cloud.homenetgames.com</td><td>third_party</td><td>1</td><td>1</td></tr><tr><td>gronocwsg01.gromero.net</td><td>third_party</td><td>1</td><td>1</td></tr><tr><td>login.microsoftonline.com</td><td>third_party</td><td>1</td><td>1</td></tr><tr><td>sae.car.gov.co</td><td>third_party</td><td>1</td><td>1</td></tr></tbody></table>
+  </details>
+</section>
+<style>
+.l2p-graph-section {
+  margin: 28px 0;
+  padding: 22px;
+  border: 1px solid #2b3d57;
+  border-radius: 14px;
+  background: #101a2b;
+  color: #edf3fb;
+}
+.l2p-graph-section h2 {
+  margin: 0 0 12px;
+  color: #f3f6fc;
+}
+.l2p-graph-note {
+  color: #9fb1c7;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.l2p-graph-viewport {
+  overflow: auto;
+  max-height: 850px;
+  border: 1px solid #263751;
+  border-radius: 10px;
+  background: #0c1524;
+}
+.l2p-graph-viewport svg {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+}
+.l2p-graph-section details {
+  margin-top: 18px;
+}
+.l2p-graph-section summary {
+  cursor: pointer;
+  color: #9ecdf5;
+}
+.l2p-graph-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.l2p-graph-table th,
+.l2p-graph-table td {
+  text-align: left;
+  padding: 9px;
+  border-bottom: 1px solid #263751;
+}
+.l2p-graph-table th {
+  color: #9ecdf5;
+}
+</style>
+
+</main>
+</body>
+</html>
