@@ -414,19 +414,44 @@ def apply_additional_findings(
     }
 
     for record in records:
-        identity = str(record.get("identity", "")).strip().lower()
-        service_key = str(record.get("service_key", ""))
-
-        if not identity or not _service_is_in_scope(record):
+        if not isinstance(record, dict):
             continue
 
-        is_corporate = bool(record.get("is_corporate_identity"))
-        id_type = str(record.get("identity_type", ""))
+        identity = str(
+            record.get("identity", "")
+        ).strip().lower()
+
+        service_key = str(
+            record.get("service_key", "")
+        )
+
+        if not identity:
+            continue
+
+        is_corporate = bool(
+            record.get("is_corporate_identity")
+        )
+
+        id_type = str(
+            record.get("identity_type", "")
+        )
+
+        linked_raw = (
+            record.get("linked_identity_candidates") or []
+        )
+
+        if isinstance(linked_raw, str):
+            linked_raw = [linked_raw]
+
         linked = {
             str(value).strip().lower()
-            for value in record.get("linked_identity_candidates", []) or []
+            for value in linked_raw
+            if value
         }
+
         is_adfs_record = _is_adfs(record)
+        in_scope_service = _service_is_in_scope(record)
+
         is_external_email = (
             "@" in identity
             and not is_corporate
@@ -435,6 +460,87 @@ def apply_additional_findings(
                 or id_type == "external_email"
             )
         )
+
+        # --------------------------------------------------------
+        # ID-003: evaluate before the in-scope service-only rules.
+        # External-service evidence is eligible only when the
+        # identity itself is corporate or explicitly linked to one.
+        # --------------------------------------------------------
+        linked_corporate = linked & corp_ids
+
+        numeric_identity_relevant = bool(
+            is_corporate
+            or identity in corp_ids
+            or linked_corporate
+            or (
+                id_type == "corporate_identifier"
+                and in_scope_service
+            )
+        )
+
+        local_part = identity.split("@", 1)[0]
+
+        numeric_suffix = bool(
+            re.search(
+                r"[a-z][a-z0-9._-]*\d{2,}$",
+                local_part,
+            )
+        )
+
+        if numeric_identity_relevant and numeric_suffix:
+            # Prefer the exact corporate identity domain or a domain
+            # from an explicitly linked corporate email.
+            family_domain = ""
+
+            if (
+                (is_corporate or identity in corp_ids)
+                and "@" in identity
+            ):
+                family_domain = identity.rsplit("@", 1)[1].lower()
+
+            if not family_domain:
+                linked_domains = sorted({
+                    item.rsplit("@", 1)[1].lower()
+                    for item in linked_corporate
+                    if "@" in item
+                })
+
+                if linked_domains:
+                    family_domain = linked_domains[0]
+
+            if not family_domain:
+                observed_domain = str(
+                    record.get("identity_domain", "")
+                ).strip().lower().rstrip(".")
+
+                target_domain = _TARGET_DOMAIN.strip().lower().rstrip(".")
+
+                if observed_domain and (
+                    observed_domain == target_domain
+                    or observed_domain.endswith("." + target_domain)
+                ):
+                    family_domain = observed_domain
+
+            if not family_domain:
+                family_domain = _TARGET_DOMAIN.strip().lower().rstrip(".")
+
+            shape = re.sub(r"\d+", "#", local_part)
+
+            family_subject = (
+                f"{shape}@{family_domain}"
+                if family_domain
+                else shape
+            )
+
+            # Use one group per username family. This allows evidence
+            # from multiple services to be consolidated together.
+            groups[
+                ("ID-003", family_subject, "*")
+            ].append(record)
+
+        # All remaining rules retain their original scope requirements.
+        if not in_scope_service:
+            continue
 
         # Case 3: an in-scope application may merit an account-lifecycle
         # review, without inferring that the employee has left.
@@ -479,50 +585,147 @@ def apply_additional_findings(
                     "ID-004", identity, service_key
                 )].append(record)
 
-        # ID-003: numeric suffix pattern. Limit it to target-related
-        # identities or identifiers observed on an in-scope service.
-        relevant = (
-            is_corporate
-            or identity in corp_ids
-            or id_type == "corporate_identifier"
-            or bool(linked & corp_ids)
-        )
 
-        local_part = identity.split("@", 1)[0]
-        numeric_suffix = bool(
-            re.search(r"[a-z][a-z0-9._-]*\d{2,}$", local_part)
-        )
-
-        if relevant and numeric_suffix:
-            shape = re.sub(r"\d+", "#", local_part)
-            domain = (
-                str(record.get("identity_domain", "")).lower()
-                or str(record.get("service_domain", "")).lower()
-            )
-            groups[(
-                "ID-003",
-                f"{shape}@{domain}" if domain else shape,
-                service_key,
-            )].append(record)
 
     for (rule_id, subject, _service), rows in sorted(groups.items()):
-        # For a numeric family, aggregate observations even when multiple
-        # exact identifiers share the normalized name shape.
+        # For a numeric family, aggregate observations only when
+        # the normalized identity and corporate domain match.
         if rule_id == "ID-003":
-            family_rows = [
-                row for row in records
-                if (
-                    str(row.get("identity", "")).strip().lower()
-                    .split("@", 1)[0]
-                    and re.sub(
-                        r"\d+",
-                        "#",
-                        str(row.get("identity", ""))
-                        .strip().lower().split("@", 1)[0],
-                    ) == subject.split("@", 1)[0]
-                    and _service_is_in_scope(row)
+            family_shape, separator, family_domain = (
+                subject.partition("@")
+            )
+
+            family_rows = []
+
+            def _domain_matches_family(
+                candidate_domain: str,
+                expected_domain: str,
+            ) -> bool:
+                candidate_domain = (
+                    candidate_domain.strip().lower().rstrip(".")
                 )
-            ]
+                expected_domain = (
+                    expected_domain.strip().lower().rstrip(".")
+                )
+
+                if not candidate_domain or not expected_domain:
+                    return False
+
+                return (
+                    candidate_domain == expected_domain
+                    or candidate_domain.endswith(
+                        "." + expected_domain
+                    )
+                    or expected_domain.endswith(
+                        "." + candidate_domain
+                    )
+                )
+
+            for row in records:
+                if not isinstance(row, dict):
+                    continue
+
+                row_identity = str(
+                    row.get("identity", "")
+                ).strip().lower()
+
+                if not row_identity:
+                    continue
+
+                row_local_part = row_identity.split("@", 1)[0]
+
+                row_shape = re.sub(
+                    r"\d+",
+                    "#",
+                    row_local_part,
+                )
+
+                if row_shape != family_shape:
+                    continue
+
+                row_type = str(
+                    row.get("identity_type", "")
+                )
+
+                row_is_corporate = bool(
+                    row.get("is_corporate_identity")
+                    or row_identity in corp_ids
+                )
+
+                row_linked_raw = (
+                    row.get("linked_identity_candidates") or []
+                )
+
+                if isinstance(row_linked_raw, str):
+                    row_linked_raw = [row_linked_raw]
+
+                row_linked = {
+                    str(value).strip().lower()
+                    for value in row_linked_raw
+                    if value
+                }
+
+                row_linked_corporate = row_linked & corp_ids
+
+                row_in_scope = _service_is_in_scope(row)
+
+                row_relevant = bool(
+                    row_is_corporate
+                    or row_linked_corporate
+                    or (
+                        row_type == "corporate_identifier"
+                        and row_in_scope
+                    )
+                )
+
+                if not row_relevant:
+                    continue
+
+                row_domains = set()
+
+                # Domain of a directly corporate email identity.
+                if row_is_corporate and "@" in row_identity:
+                    row_domains.add(
+                        row_identity.rsplit("@", 1)[1].lower()
+                    )
+
+                # Domains of explicit linked corporate email anchors.
+                row_domains.update(
+                    linked_identity.rsplit("@", 1)[1].lower()
+                    for linked_identity in row_linked_corporate
+                    if "@" in linked_identity
+                )
+
+                # A directly corporate record can also provide its
+                # normalized identity domain.
+                row_identity_domain = str(
+                    row.get("identity_domain", "")
+                ).strip().lower().rstrip(".")
+
+                if row_is_corporate and row_identity_domain:
+                    row_domains.add(row_identity_domain)
+
+                # For a non-email corporate identifier on a service
+                # inside the target scope, use the configured target.
+                if (
+                    not row_domains
+                    and row_type == "corporate_identifier"
+                    and row_in_scope
+                    and _TARGET_DOMAIN
+                ):
+                    row_domains.add(_TARGET_DOMAIN.lower())
+
+                same_domain = any(
+                    _domain_matches_family(
+                        candidate,
+                        family_domain,
+                    )
+                    for candidate in row_domains
+                )
+
+                if same_domain:
+                    family_rows.append(row)
+
             if family_rows:
                 rows = family_rows
 
