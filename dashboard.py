@@ -75,9 +75,10 @@ UI = {
         "no_decisions": "No hay decisiones de triage.",
         "domain_graph": "Vista centrada en dominio",
         "domain_graph_note": (
-            "Las líneas continuas representan observaciones de identidad y "
-            "servicio. Las líneas discontinuas representan contexto de alcance "
-            "o relaciones candidatas. No implican acceso confirmado."
+            "Las conexiones del dominio a las identidades corporativas muestran "
+            "el contexto del objetivo. Las líneas continuas conectan identidades "
+            "con servicios observados; las discontinuas indican correlaciones "
+            "candidatas. No representan acceso confirmado."
         ),
         "identity_graph": "Mapa de correlación centrado en identidad",
         "identity_graph_note": (
@@ -197,9 +198,9 @@ UI = {
         "no_decisions": "No triage decisions available.",
         "domain_graph": "Domain-centric view",
         "domain_graph_note": (
-            "Solid lines represent observed identity-to-service relationships. "
-            "Dashed lines indicate scope context or candidate relationships. "
-            "They do not imply confirmed access."
+            "Domain-to-corporate-identity connectors show target context. Solid "
+            "lines connect identities to observed services; dashed lines indicate "
+            "candidate correlations. None of these relationships proves access."
         ),
         "identity_graph": "Identity-centric correlation map",
         "identity_graph_note": (
@@ -1388,16 +1389,27 @@ def _short(value: str, limit: int = 38) -> str:
     return value[:limit - 1] + "…"
 
 
+
 def _svg_domain_graph(
     target: str,
     model: Dict[str, Any],
     lang: str,
     max_nodes: int = 16,
 ) -> str:
+    """Render a connected three-column domain/identity/service graph.
+
+    Left: target domain.
+    Center: identities observed or explicitly correlated.
+    Right: in-scope and linked third-party services.
+
+    Observed relationships and candidate alias edges are visually distinct.
+    The graph does not prove authentication or account ownership.
+    """
     ui = UI[lang]
     identities = model["identities"]
     services = model["services"]
     edges = model["edges"]
+    corporate_ids = model["corporate_ids"]
 
     identity_keys = sorted(
         identities,
@@ -1420,109 +1432,190 @@ def _svg_domain_graph(
     visible_identities = set(identity_keys)
     visible_services = set(service_keys)
 
+    # Three-column geometry:
+    # target x=22..246; identities x=340..655; services x=760..1120.
     width = 1160
     row_h = 62
     top = 85
+
     height = max(
         400,
-        top + row_h * max(1, len(identity_keys), len(service_keys)) + 60,
-    )
-    center_y = height // 2
-    target_label = (
-    "DOMINIO OBJETIVO" if lang == "es" else "TARGET DOMAIN"
+        top + row_h * max(
+            1,
+            len(identity_keys),
+            len(service_keys),
+        ) + 60,
     )
 
-    # Target domain -> exact corporate identities -> services.
+    center_y = height // 2
+
+    target_label = (
+        "DOMINIO OBJETIVO" if lang == "es" else "TARGET DOMAIN"
+    )
+
+    corporate_label = (
+        "Identidad corporativa" if lang == "es"
+        else "Corporate identity"
+    )
+
+    # Center each card and use the exact same coordinates for its edges.
+    identity_y = {
+        identity: top + index * row_h + 21
+        for index, identity in enumerate(identity_keys)
+    }
+
+    service_y = {
+        service_key: top + index * row_h + 21
+        for index, service_key in enumerate(service_keys)
+    }
+
     parts = [
         f'<svg viewBox="0 0 {width} {height}" '
         'role="img" aria-label="Domain-centric identity and service graph">',
-        '<defs><marker id="l2pDomainArrow" markerWidth="9" markerHeight="9" '
-        'refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3z" '
-        'fill="#7188a8"/></marker></defs>',
+        '<defs>',
+        '<marker id="l2pDomainArrow" markerWidth="9" markerHeight="9" '
+        'refX="8" refY="3" orient="auto" markerUnits="strokeWidth">'
+        '<path d="M0,0 L0,6 L9,3z" fill="#7188a8"/>'
+        '</marker>',
+        '<marker id="l2pDomainCorporateArrow" markerWidth="9" markerHeight="9" '
+        'refX="8" refY="3" orient="auto" markerUnits="strokeWidth">'
+        '<path d="M0,0 L0,6 L9,3z" fill="#48b4a2"/>'
+        '</marker>',
+        '</defs>',
     ]
 
+    # 1. Draw target -> exact corporate identity edges.
+    # These edges terminate at the left edge of an actual identity card.
+    for identity in identity_keys:
+        if identity not in corporate_ids:
+            continue
+
+        iy = identity_y[identity]
+
+        parts.append(
+            f'<path d="M246 {center_y} '
+            f'C280 {center_y}, 300 {iy}, 340 {iy}" '
+            'fill="none" stroke="#48b4a2" stroke-width="1.7" '
+            'marker-end="url(#l2pDomainCorporateArrow)" opacity="0.9">'
+            f'<title>{_e(ui["observed_edge"])}</title>'
+            '</path>'
+        )
+
+    # 2. Draw identity -> service edges.
+    # The node on each side is guaranteed to be visible before the SVG closes.
     for edge in edges:
         identity = edge["identity"]
         service_key = edge["service_key"]
         kind = edge["kind"]
 
-        if identity not in visible_identities or service_key not in visible_services:
+        if (
+            identity not in visible_identities
+            or service_key not in visible_services
+        ):
             continue
 
-        i_idx = identity_keys.index(identity)
-        s_idx = service_keys.index(service_key)
+        iy = identity_y[identity]
+        sy = service_y[service_key]
 
-        iy = top + i_idx * row_h + 21
-        sy = top + s_idx * row_h + 21
-
-        dash = ' stroke-dasharray="6 5"' if kind == "candidate" else ""
-        color = "#d4a76a" if kind == "candidate" else "#7188a8"
+        if kind == "candidate":
+            color = "#d4a76a"
+            dash = ' stroke-dasharray="6 5"'
+            marker = "url(#l2pDomainArrow)"
+            label = ui["candidate_edge"]
+        else:
+            color = "#7188a8"
+            dash = ""
+            marker = "url(#l2pDomainArrow)"
+            label = ui["observed_edge"]
 
         parts.append(
-            f'<path d="M655 {iy} C700 {iy}, 720 {sy}, 760 {sy}" '
-            f'fill="none" stroke="{color}" stroke-width="1.5"{dash} '
-            'marker-end="url(#l2pDomainArrow)" opacity="0.85">'
-            f'<title>{_e(ui["candidate_edge"] if kind == "candidate" else ui["observed_edge"])}</title>'
+            f'<path d="M655 {iy} '
+            f'C690 {iy}, 720 {sy}, 760 {sy}" '
+            f'fill="none" stroke="{color}" stroke-width="1.7"{dash} '
+            f'marker-end="{marker}" opacity="0.9">'
+            f'<title>{_e(label)}</title>'
             '</path>'
         )
 
-    # Scope-context connectors are dashed and are not presented as access.
-    for index, service_key in enumerate(service_keys):
-        item = services[service_key]
-        if item["scope"] != "corporate":
-            continue
-
-        sy = top + index * row_h + 21
-
-        parts.append(
-            f'<path d="M245 {center_y} C400 {center_y}, '
-            f'480 {sy}, 760 {sy}" fill="none" stroke="#48b4a2" '
-            'stroke-width="1.4" stroke-dasharray="3 5" opacity="0.45">'
-            f'<title>{_e(ui["scope_edge"])}</title></path>'
-        )
-
-    # Target and identity nodes.
-    target_x, target_y, target_w, target_h = 22, center_y - 46, 224, 92
+    # 3. Draw the target-domain card.
+    target_x = 22
+    target_y = center_y - 46
+    target_w = 224
+    target_h = 92
 
     parts.append(
-        f'<rect x="{target_x}" y="{target_y}" width="{target_w}" '
-        f'height="{target_h}" rx="13" fill="#182c46" stroke="#51a6d8" stroke-width="2"/>'
+        f'<rect x="{target_x}" y="{target_y}" '
+        f'width="{target_w}" height="{target_h}" rx="13" '
+        'fill="#182c46" stroke="#51a6d8" stroke-width="2"/>'
         f'<text x="{target_x + target_w / 2}" y="{target_y + 34}" '
         'text-anchor="middle" fill="#a9d8fa" font-size="12">'
-		f'{_e(target_label)}</text>'
+        f'{_e(target_label)}</text>'
         f'<text x="{target_x + target_w / 2}" y="{target_y + 60}" '
-        f'text-anchor="middle" fill="#ffffff" font-size="14" font-weight="600">'
+        'text-anchor="middle" fill="#ffffff" font-size="14" font-weight="600">'
         f'{_e(_short(target, 27))}</text>'
     )
 
-    for index, identity in enumerate(identity_keys):
-        if identity not in model["corporate_ids"]:
-            continue
+    # 4. Draw every visible identity card.
+    # Previously, only connectors were emitted here; the cards themselves
+    # were missing, leaving identity-to-service edges floating in the SVG.
+    for identity in identity_keys:
+        item = identities[identity]
+        cy = identity_y[identity]
+        y = cy - 21
 
-        identity_y = top + index * row_h + 21
-
-        parts.append(
-            f'<path d="M246 {center_y} '
-            f'C280 {center_y}, 300 {identity_y}, 340 {identity_y}" '
-            'fill="none" stroke="#48b4a2" stroke-width="1.5" '
-            'marker-end="url(#l2pDomainArrow)" opacity="0.85">'
-            f'<title>{_e(ui["observed_edge"])}</title>'
-            '</path>'
+        is_corporate = bool(
+            identity in corporate_ids
+            or item.get("corporate")
         )
 
-    for index, service_key in enumerate(service_keys):
+        border = "#48b4a2" if is_corporate else "#d4a76a"
+
+        if is_corporate:
+            type_label = corporate_label
+        else:
+            type_label = _display(
+                item.get("identity_type", "unknown"),
+                lang,
+            )
+
+        identity_services = len(item.get("services", set()))
+        identity_evidence = len(item.get("evidence", set()))
+
+        parts.append(
+            f'<rect x="340" y="{y}" width="315" height="43" rx="8" '
+            f'fill="#17243a" stroke="{border}" stroke-width="1.3"/>'
+            f'<text x="352" y="{y + 17}" fill="#edf3fb" font-size="12">'
+            f'{_e(_short(identity, 39))}</text>'
+            f'<text x="352" y="{y + 33}" fill="#aabbd0" font-size="10">'
+            f'{_e(type_label)} · {identity_services} '
+            f'{_e(ui["services"].lower())} · {identity_evidence} '
+            f'{_e(ui["evidence"].lower())}</text>'
+        )
+
+    # 5. Draw service/endpoint cards.
+    for service_key in service_keys:
         item = services[service_key]
-        y = top + index * row_h
-        scope_label = _display(item["scope"], lang)
-        border = "#48b4a2" if item["scope"] == "corporate" else "#7e91ef"
+        cy = service_y[service_key]
+        y = cy - 21
+
+        scope = item.get("scope", "unknown")
+        scope_label = _display(scope, lang)
+
+        border = (
+            "#48b4a2" if scope == "corporate"
+            else "#7e91ef" if scope == "third_party"
+            else "#8094b4"
+        )
+
+        service_host = str(item.get("host", ""))
 
         parts.append(
             f'<rect x="760" y="{y}" width="360" height="43" rx="8" '
-            f'fill="#17243a" stroke="{border}"/>'
-            f'<text x="773" y="{y + 18}" fill="#edf3fb" font-size="12">'
-            f'{_e(_short(item["host"], 45))}</text>'
+            f'fill="#17243a" stroke="{border}" stroke-width="1.3"/>'
+            f'<text x="773" y="{y + 17}" fill="#edf3fb" font-size="12">'
+            f'{_e(_short(service_host, 45))}</text>'
             f'<text x="773" y="{y + 33}" fill="#aabbd0" font-size="10">'
-            f'{_e(scope_label)} · {len(item["evidence"])} '
+            f'{_e(scope_label)} · {len(item.get("evidence", set()))} '
             f'{_e(ui["evidence"].lower())}</text>'
         )
 
@@ -1530,26 +1623,29 @@ def _svg_domain_graph(
 
     if not edges:
         return (
-            f'<section class="panel report-section" id="l2p-domain-graph">'
+            '<section class="panel report-section" id="l2p-domain-graph">'
             f'<h2>{_e(ui["domain_graph"])}</h2>'
-            f'<p class="muted">{_e(ui["no_graph_data"])}</p></section>'
+            f'<p class="muted">{_e(ui["no_graph_data"])}</p>'
+            '</section>'
         )
 
     legend = (
-        f'<div class="legend">'
-        f'<span><i class="legend-solid"></i>{_e(ui["observed_edge"])}</span>'
-        f'<span><i class="legend-dashed"></i>{_e(ui["scope_edge"])}</span>'
-        f'<span><i class="legend-candidate"></i>{_e(ui["candidate_edge"])}</span>'
-        "</div>"
+        '<div class="legend">'
+        f'<span><i class="legend-solid"></i>'
+        f'{_e(ui["observed_edge"])}</span>'
+        f'<span><i class="legend-candidate"></i>'
+        f'{_e(ui["candidate_edge"])}</span>'
+        '</div>'
     )
 
     return (
-        f'<section class="panel report-section" id="l2p-domain-graph">'
+        '<section class="panel report-section" id="l2p-domain-graph">'
         f'<h2>{_e(ui["domain_graph"])}</h2>'
         f'<p class="muted">{_e(ui["domain_graph_note"])}</p>'
         f'{legend}<div class="graph-viewport">{"".join(parts)}</div>'
         '</section>'
     )
+
 
 
 def _svg_identity_graph(
