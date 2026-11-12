@@ -1006,6 +1006,7 @@ def run_tgrep_json(
     index_dir: Optional[Path],
     mode: str,
     fixed: bool,
+    case_sensitive: bool = False,
 ) -> Dict[str, Any]:
     """Stream tgrep JSON events; indexed mode uses the external index."""
     if mode not in {"indexed", "text_scan"}:
@@ -1033,8 +1034,10 @@ def run_tgrep_json(
     cmd.extend([
         "--json",
         "--no-require-git",
-        "-i",
     ])
+
+    if not case_sensitive:
+        cmd.append("-i")
 
     if fixed:
         cmd.append("-F")
@@ -4717,6 +4720,7 @@ def simple_search(
                     None,
                     "text_scan",
                     True,
+                    case_sensitive=case_sensitive,
                 )
 
                 if not native.get("unmapped_paths") and not native.get("errors"):
