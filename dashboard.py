@@ -133,6 +133,7 @@ UI = {
         "what_to_prove": "Qué se busca demostrar",
         "potential_impact": "Posible escenario de impacto",
         "validation_conditions": "Condiciones de validación",
+        "secondary_routes": "Rutas secundarias de Red Team",
         "interpretation": "Interpretación",
         "limitations": "Limitaciones",
         "validation": "Validación recomendada",
@@ -256,6 +257,7 @@ UI = {
         "what_to_prove": "What the test should demonstrate",
         "potential_impact": "Potential impact scenario",
         "validation_conditions": "Validation conditions",
+        "secondary_routes": "Secondary Red Team paths",
         "interpretation": "Interpretation",
         "limitations": "Limitations",
         "validation": "Recommended validation",
@@ -753,6 +755,27 @@ PATH_TEXT = {
             "explicit authorization.",
         ),
     },
+	
+    "password_pattern_reuse_across_services": {
+        "es": (
+            "Reutilización o variación de patrones de contraseña entre servicios",
+            "La evidencia correlaciona material de credenciales o patrones "
+            "numéricos similares entre varios servicios.",
+            "No demuestra que las credenciales sigan vigentes ni que el acceso "
+            "haya sido exitoso.",
+            "Validar únicamente material observado y endpoints expresamente "
+            "incluidos en el alcance.",
+        ),
+        "en": (
+            "Credential reuse or password-pattern variation across services",
+            "Evidence correlates credential material or similar numeric "
+            "password patterns across multiple services.",
+            "Does not prove that credentials remain valid or that access succeeded.",
+            "Validate only observed credential material and endpoints explicitly "
+            "included in the engagement scope.",
+        ),
+    },
+
 }
 
 
@@ -1008,6 +1031,15 @@ PATH_SCENARIOS = {
                 "aplicación. No asumir que el identificador pertenece a un "
                 "empleado ni que la cuenta esté activa."
             ),
+            "secondary_routes": (
+                "Si se confirma el acceso a la identidad: realizar reconocimiento "
+                "pasivo de los SSID visibles en las zonas autorizadas. Determinar "
+                "cuáles son redes gestionadas por la organización objetivo y están "
+                "expresamente incluidas en el alcance. La validación de acceso "
+                "inalámbrico requiere autorización escrita y debe limitarse a esas "
+                "redes, utilizando el procedimiento aprobado. No probar credenciales "
+                "ULP contra redes públicas de terceros cercanas a las instalaciones."
+            ),
         },
         "en": {
             "route": (
@@ -1031,6 +1063,14 @@ PATH_SCENARIOS = {
                 "Corroborate account type and ownership with the application "
                 "owner. Do not assume that the identifier belongs to an employee "
                 "or that the account is active."
+            ),
+            "secondary_routes": (
+                "If access to the identity is confirmed: passively survey SSIDs visible "
+                "in authorized areas. Determine which networks are managed by the target "
+                "organization and explicitly included in scope. Wireless access validation "
+                "requires written authorization and must be limited to those networks, "
+                "using the approved procedure. Do not test ULP credentials against nearby "
+                "public third-party networks."
             ),
         },
     },
@@ -1065,6 +1105,15 @@ PATH_SCENARIOS = {
                 "y el responsable de la aplicación. No inferir desvinculación "
                 "laboral a partir de registros ULP."
             ),
+            "secondary_routes": (
+                "Si se confirma el acceso a la identidad: realizar reconocimiento "
+                "pasivo de los SSID visibles en las zonas autorizadas. Determinar "
+                "cuáles son redes gestionadas por la organización objetivo y están "
+                "expresamente incluidas en el alcance. La validación de acceso "
+                "inalámbrico requiere autorización escrita y debe limitarse a esas "
+                "redes, utilizando el procedimiento aprobado. No probar credenciales "
+                "ULP contra redes públicas de terceros cercanas a las instalaciones."
+            ),
         },
         "en": {
             "route": (
@@ -1088,6 +1137,14 @@ PATH_SCENARIOS = {
             "validation": (
                 "Corroborate account status and relationship with the authorized "
                 "inventory and application owner. Do not infer offboarding from ULP records."
+            ),
+            "secondary_routes": (
+                "If access to the identity is confirmed: passively survey SSIDs visible "
+                "in authorized areas. Determine which networks are managed by the target "
+                "organization and explicitly included in scope. Wireless access validation "
+                "requires written authorization and must be limited to those networks, "
+                "using the approved procedure. Do not test ULP credentials against nearby "
+                "public third-party networks."
             ),
         },
     },
@@ -1178,6 +1235,15 @@ PATH_SCENARIOS = {
                 "cuenta de prueba o procedimiento aprobado; no asumir que una "
                 "coincidencia ULP confirma una sesión válida."
             ),
+            "secondary_routes": (
+                "Si se confirma el acceso a la identidad: realizar reconocimiento "
+                "pasivo de los SSID visibles en las zonas autorizadas. Determinar "
+                "cuáles son redes gestionadas por la organización objetivo y están "
+                "expresamente incluidas en el alcance. La validación de acceso "
+                "inalámbrico requiere autorización escrita y debe limitarse a esas "
+                "redes, utilizando el procedimiento aprobado. No probar credenciales "
+                "ULP contra redes públicas de terceros cercanas a las instalaciones."
+            ),
         },
         "en": {
             "title": "Corporate identity associated with Microsoft sign-in",
@@ -1207,8 +1273,98 @@ PATH_SCENARIOS = {
                 "procedure for access validation; a ULP match does not "
                 "confirm a valid session."
             ),
+            "secondary_routes": (
+                "If access to the identity is confirmed: passively survey SSIDs visible "
+                "in authorized areas. Determine which networks are managed by the target "
+                "organization and explicitly included in scope. Wireless access validation "
+                "requires written authorization and must be limited to those networks, "
+                "using the approved procedure. Do not test ULP credentials against nearby "
+                "public third-party networks."
+            ),
         },
     },
+
+
+    # --------------------------------------------------------
+    # Password reuse or numeric-pattern variation across services
+    # Triggered by PWD-001 and/or PWD-002 findings.
+    # --------------------------------------------------------
+    "password_pattern_reuse_across_services": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad corporativa {identity} → "
+                "hallazgo de reutilización o variación de patrón de contraseña "
+                "→ identificación de los servicios explícitamente observados "
+                "{services} → validación controlada del material de credenciales "
+                "observado en endpoints dentro del alcance → evaluación del "
+                "resultado y de los servicios que acepten la credencial."
+            ),
+            "objective": (
+                "Determinar si la evidencia corresponde a reutilización exacta "
+                "o a patrones numéricos similares entre distintos servicios, y "
+                "si el material observado continúa siendo utilizable en los "
+                "endpoints autorizados."
+            ),
+            "impact": (
+                "Si una credencial observada sigue vigente y es aceptada en "
+                "varios servicios, el compromiso de uno de ellos podría facilitar "
+                "acceso a los demás servicios que acepten ese mismo material. "
+                "La similitud de patrones no demuestra por sí sola que existan "
+                "otras contraseñas o cuentas."
+            ),
+            "validation": (
+                "Distinguir PWD-001 (fingerprint exacto) de PWD-002 (patrón "
+                "numérico candidato). Validar solo credenciales presentes en la "
+                "evidencia y endpoints expresamente incluidos en el alcance; "
+                "no generar variantes supuestas para probarlas."
+            ),
+            "secondary_routes": (
+                "Si se confirma el acceso a uno de los servicios: revisar las "
+                "otras aplicaciones expresamente incluidas en el alcance donde "
+                "la evidencia ya haya observado el mismo material de credenciales; "
+                "evaluar las relaciones de SSO o dependencias que sean visibles "
+                "desde la sesión autorizada; y documentar cualquier diferencia "
+                "entre el acceso observado y los permisos esperados. No extrapolar "
+                "el patrón para crear contraseñas candidatas ni probar variantes "
+                "no observadas."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → corporate identity {identity} → credential reuse "
+                "or pattern-variation finding → identify explicitly observed "
+                "services {services} → controlled validation of observed "
+                "credential material on in-scope endpoints → assess the result "
+                "and which services accept that credential."
+            ),
+            "objective": (
+                "Determine whether the evidence indicates exact reuse or similar "
+                "numeric patterns across services, and whether the observed "
+                "material remains usable on authorized endpoints."
+            ),
+            "impact": (
+                "If an observed credential remains valid and is accepted by "
+                "multiple services, compromise of one service could facilitate "
+                "access to other services accepting the same material. Pattern "
+                "similarity alone does not prove that other passwords or accounts exist."
+            ),
+            "validation": (
+                "Distinguish PWD-001 (exact fingerprint) from PWD-002 "
+                "(candidate numeric pattern). Validate only credentials present "
+                "in the evidence and endpoints explicitly within scope; do not "
+                "generate guessed variants for testing."
+            ),
+            "secondary_routes": (
+                "If access to one service is confirmed: review other applications "
+                "explicitly in scope where the same credential material was "
+                "already observed; assess SSO or dependencies visible from the "
+                "authorized session; and document any difference between observed "
+                "access and expected permissions. Do not extrapolate the pattern "
+                "into guessed passwords or test unobserved variants."
+            ),
+        },
+    },
+
 
     # --------------------------------------------------------
     # Fallback for future path types
@@ -1527,7 +1683,7 @@ def _service_label(value: Any) -> str:
 def _path_copy(
     path: Dict[str, Any],
     lang: str,
-) -> Tuple[str, str, str, str, str]:
+) -> Tuple[str, str, str, str, str, str]:
     path_type = str(path.get("path_type", ""))
     language = lang if lang in UI else "es"
 
@@ -1618,12 +1774,23 @@ def _path_copy(
         "aliases": aliases_text,
     }
 
+    secondary_routes = scenario.get(
+        "secondary_routes",
+        (
+            "No se identificó una ruta secundaria específica a partir "
+            "de la evidencia disponible."
+            if language == "es"
+            else "No specific secondary path was identified from the available evidence."
+        ),
+    )
+
     return (
         title,
         scenario["route"].format(**values),
         scenario["objective"].format(**values),
         scenario["impact"].format(**values),
         scenario["validation"].format(**values),
+        secondary_routes.format(**values),
     )
 
 
@@ -1641,6 +1808,7 @@ def _path_rows(
             objective,
             impact,
             validation,
+			secondary_routes,
         ) = _path_copy(path, lang)
 
         services = path.get("services") or []
@@ -1688,6 +1856,10 @@ def _path_rows(
             '<div class="scenario-block validation-block">'
             f'<b>{_e(ui["validation_conditions"])}:</b> '
             f'{_e(validation)}'
+            '</div>'
+            '<div class="scenario-block secondary-routes-block">'
+            f'<b>{_e(ui["secondary_routes"])}:</b> '
+            f'{_e(secondary_routes)}'
             '</div>'
             '</div>'
         )
@@ -2769,6 +2941,15 @@ th{color:var(--muted)}
 .validation-block{
   color:#b9c8d9;
   font-size:12px;
+}
+.secondary-routes-block {
+  border-left: 3px solid #d4a76a;
+  padding: 10px 12px;
+  background: #171f2d;
+  border-radius: 6px;
+}
+.secondary-routes-block b {
+  color: #e7c28d;
 }
 .rule-table tr:target{background:#24354c}
 nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
