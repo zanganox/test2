@@ -776,36 +776,56 @@ def apply_additional_findings(
     )
 
 
+
 def extend_attack_paths(
     existing_paths: List[Dict[str, Any]],
     findings: List[Dict[str, Any]],
     stable_id: Callable[..., str],
 ) -> List[Dict[str, Any]]:
-    """Build unvalidated path hypotheses from the new observation rules."""
+    """Generate aggregated, unvalidated Attack Path hypotheses."""
+
     rule_to_path = {
         "SVC-001": (
             "external_identity_to_in_scope_application",
             "External identity observed on an in-scope application",
             "An external email was observed in a record associated with an "
-            "in-scope application. The relationship is not proof of access.",
+            "in-scope application. This relationship is not proof of access.",
         ),
         "SVC-002": (
             "identifier_to_in_scope_application",
             "Identifier observed on an in-scope application",
             "A non-email identifier was observed in a record associated with "
-            "an in-scope application. Its ownership and account status are unknown.",
+            "an in-scope application. Ownership and account status are unknown.",
         ),
         "APP-001": (
             "corporate_identity_to_in_scope_application",
             "Corporate identity observed on an in-scope application",
-            "An identity or linked alias was observed on an in-scope application. "
-            "This can inform lifecycle review but does not establish stale access.",
+            "A corporate identity or linked alias was observed on an in-scope "
+            "application. This does not establish current or persistent access.",
         ),
         "AUTH-002": (
             "external_identity_to_corporate_adfs",
             "External identity observed on corporate AD FS",
             "An external email was observed on an in-scope AD FS endpoint. "
-            "No successful authentication or domain access has been established.",
+            "Successful authentication and domain access have not been established.",
+        ),
+
+        # New Attack Path: create a path if either PWD-001 or PWD-002
+        # has been matched. Both rules are consolidated into one path
+        # per identity, with the matched rule IDs retained in the output.
+        "PWD-001": (
+            "password_pattern_reuse_across_services",
+            "Credential reuse or password-pattern variation across services",
+            "Evidence indicates exact credential-material reuse or a shared "
+            "numeric password-pattern family across explicitly identified services. "
+            "This does not establish current credential validity or successful access.",
+        ),
+        "PWD-002": (
+            "password_pattern_reuse_across_services",
+            "Credential reuse or password-pattern variation across services",
+            "Evidence indicates exact credential-material reuse or a shared "
+            "numeric password-pattern family across explicitly identified services. "
+            "This does not establish current credential validity or successful access.",
         ),
     }
 
@@ -821,36 +841,62 @@ def extend_attack_paths(
             continue
 
         path_type, title, narrative = rule_to_path[rule_id]
-        identity = str(finding.get("subject_identity", ""))
+        identity = str(
+            finding.get("subject_identity", "")
+        ).strip()
+
+        if not identity:
+            continue
+
         details = finding.get("details", {}) or {}
-
         key = (path_type, identity)
-        group = groups.setdefault(key, {
-            "path_type": path_type,
-            "identity": identity,
-            "title": title,
-            "narrative": narrative,
-            "services": set(),
-            "evidence_ids": set(),
-            "finding_ids": set(),
-            "rules": set(),
-        })
 
-        for service in details.get("observed_services", []) or []:
-            if service:
-                group["services"].add(str(service))
+        group = groups.setdefault(
+            key,
+            {
+                "path_type": path_type,
+                "identity": identity,
+                "title": title,
+                "narrative": narrative,
+                "services": set(),
+                "evidence_ids": set(),
+                "finding_ids": set(),
+                "rules": set(),
+                "pattern_types": set(),
+            },
+        )
 
-        for service_key in details.get("service_keys", []) or []:
-            if service_key:
-                group["services"].add(str(service_key))
+        # The PWD findings use distinct_services. Other rules may use
+        # observed_services or service_keys. Support all three schemas.
+        for field in (
+            "observed_services",
+            "service_keys",
+            "distinct_services",
+        ):
+            values = details.get(field, []) or []
+
+            if isinstance(values, str):
+                values = [values]
+
+            for service in values:
+                if service:
+                    group["services"].add(str(service))
 
         group["evidence_ids"].update(
-            finding.get("evidence_ids", []) or []
+            str(value)
+            for value in finding.get("evidence_ids", []) or []
+            if value
         )
-        group["finding_ids"].add(
-            str(finding.get("finding_id", ""))
-        )
+
+        finding_id = finding.get("finding_id")
+        if finding_id:
+            group["finding_ids"].add(str(finding_id))
+
         group["rules"].add(rule_id)
+
+        pattern_type = details.get("pattern_type")
+        if pattern_type:
+            group["pattern_types"].add(str(pattern_type))
 
     paths = list(existing_paths)
 
@@ -858,18 +904,50 @@ def extend_attack_paths(
         services = sorted(group["services"])
         evidence_ids = sorted(group["evidence_ids"])
 
+        # A path must have explicit service context and evidence.
         if not services or not evidence_ids:
             continue
 
+        is_password_path = (
+            path_type == "password_pattern_reuse_across_services"
+        )
+
+        if is_password_path:
+            limitations = (
+                "A match indicates observed reuse or pattern similarity only. "
+                "It does not prove that a credential is current or usable. "
+                "Do not infer unobserved password variants."
+            )
+
+            recommended_validation = (
+                "When credential validation is explicitly in scope, use only "
+                "credential material actually present in the evidence and only "
+                "against the specifically authorized endpoints. Do not generate "
+                "or test guessed variants."
+            )
+        else:
+            limitations = (
+                "This is an evidence-based relationship hypothesis, not proof "
+                "of valid credentials, successful authentication, current account "
+                "activity or operational access."
+            )
+
+            recommended_validation = (
+                "Validate only against endpoints and accounts explicitly "
+                "included in the authorized engagement scope."
+            )
+
+        path_id = stable_id(
+            "|".join([
+                _TARGET_DOMAIN,
+                identity,
+                path_type,
+                *services,
+            ])
+        )
+
         paths.append({
-            "path_id": stable_id(
-                "|".join([
-                    _TARGET_DOMAIN,
-                    identity,
-                    path_type,
-                    *services,
-                ])
-            ),
+            "path_id": path_id,
             "identity": identity,
             "path_type": path_type,
             "title": group["title"],
@@ -889,9 +967,26 @@ def extend_attack_paths(
                 },
                 {
                     "step": 3,
-                    "type": "in_scope_application",
-                    "value": services,
+                    "type": (
+                        "credential_pattern_evidence"
+                        if is_password_path
+                        else "observed_service_relationship"
+                    ),
+                    "value": (
+                        sorted(group["pattern_types"])
+                        if is_password_path
+                        else services
+                    ),
                     "evidence_status": "observed",
+                },
+                {
+                    "step": 4,
+                    "type": "authorized_validation",
+                    "value": (
+                        "Credential-material validation on explicitly "
+                        "in-scope endpoints"
+                    ),
+                    "evidence_status": "hypothesis_not_validated",
                 },
             ],
             "services": services,
@@ -899,20 +994,16 @@ def extend_attack_paths(
             "evidence_ref_count": len(evidence_ids),
             "finding_ids": sorted(group["finding_ids"]),
             "rule_ids": sorted(group["rules"]),
+            "pattern_types": sorted(group["pattern_types"]),
             "evidence_status": "hypothesis_not_validated",
             "not_validated": True,
             "confidence": "low",
-            "limitations": (
-                "This is an evidence-based relationship hypothesis, not "
-                "proof of valid credentials, successful authentication, "
-                "current account activity or operational access."
-            ),
-            "recommended_validation": (
-                "Corroborate with an authorized service owner and application "
-                "inventory. Validate access only when explicitly in scope."
-            ),
+            "limitations": limitations,
+            "recommended_validation": recommended_validation,
         })
 
+    # Stable deduplication: if PWD-001 and PWD-002 match for the same
+    # identity and services, keep a single aggregated path.
     unique: Dict[str, Dict[str, Any]] = {}
 
     for path in paths:
@@ -926,6 +1017,7 @@ def extend_attack_paths(
             path.get("services", []),
         ),
     )
+
 
 
 def fix_triage_explanations(
