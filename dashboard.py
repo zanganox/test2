@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import json
 import re
+from urllib.parse import urlsplit
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -127,7 +128,11 @@ UI = {
         "attack_path": "Hipótesis",
         "path_identity": "Identidad observada",
         "path_service": "Servicio o endpoint",
-        "path_description": "Interpretación, limitaciones y validación",
+        "path_description": "Ruta propuesta y escenario de Red Team",
+        "proposed_route": "Ruta propuesta",
+        "what_to_prove": "Qué se busca demostrar",
+        "potential_impact": "Posible escenario de impacto",
+        "validation_conditions": "Condiciones de validación",
         "interpretation": "Interpretación",
         "limitations": "Limitaciones",
         "validation": "Validación recomendada",
@@ -246,7 +251,11 @@ UI = {
         "attack_path": "Hypothesis",
         "path_identity": "Observed identity",
         "path_service": "Service or endpoint",
-        "path_description": "Interpretation, limitations and validation",
+        "path_description": "Proposed Red Team path and impact scenario",
+        "proposed_route": "Proposed route",
+        "what_to_prove": "What the test should demonstrate",
+        "potential_impact": "Potential impact scenario",
+        "validation_conditions": "Validation conditions",
         "interpretation": "Interpretation",
         "limitations": "Limitations",
         "validation": "Recommended validation",
@@ -747,6 +756,508 @@ PATH_TEXT = {
 }
 
 
+PATH_SCENARIOS = {
+    # --------------------------------------------------------
+    # Corporate identity observed on a third-party application
+    # --------------------------------------------------------
+    "observed_corporate_identity_to_external_service": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad corporativa {identity} → "
+                "aplicación de terceros {services} → identificación del "
+                "mecanismo de autenticación y del propietario del servicio "
+                "→ validación autorizada mediante cuenta de prueba o "
+                "procedimiento aprobado → revisión de roles, funciones y "
+                "datos accesibles → evaluación de dependencias adicionales "
+                "dentro del alcance."
+            ),
+            "objective": (
+                "Determinar si la relación entre identidad y aplicación es "
+                "correcta, si existe una cuenta vigente y qué funciones, datos "
+                "y permisos están disponibles bajo las condiciones autorizadas."
+            ),
+            "impact": (
+                "Si se confirma una cuenta utilizable con permisos excesivos "
+                "o controles de autorización insuficientes, podrían quedar "
+                "expuestos datos o funciones de la aplicación de terceros. "
+                "No se presupone reutilización de credenciales en otros servicios."
+            ),
+            "validation": (
+                "Corroborar la relación con el responsable del servicio. "
+                "Usar una cuenta de prueba o un procedimiento aprobado. "
+                "Validar reutilización entre servicios solo si forma parte "
+                "del alcance autorizado."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → corporate identity {identity} → third-party "
+                "application {services} → identify the authentication "
+                "mechanism and service owner → authorized validation through "
+                "a test account or approved procedure → review roles, "
+                "functions and accessible data → assess additional dependencies "
+                "within the authorized scope."
+            ),
+            "objective": (
+                "Determine whether the identity/application relationship is "
+                "correct, whether an account is current, and which functions, "
+                "data and permissions are available under authorized conditions."
+            ),
+            "impact": (
+                "If a usable account with excessive permissions or insufficient "
+                "authorization controls is confirmed, application data or "
+                "functions could be exposed. Credential reuse across services "
+                "is not assumed."
+            ),
+            "validation": (
+                "Corroborate the relationship with the service owner. Use a "
+                "test account or approved procedure. Validate cross-service "
+                "reuse only when it is explicitly within scope."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # Candidate username alias on a third-party application
+    # --------------------------------------------------------
+    "candidate_localpart_alias_to_external_service": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad corporativa {identity} → alias "
+                "candidato {aliases} → corroboración con inventario autorizado "
+                "o responsable de la aplicación → identificación del mecanismo "
+                "de autenticación → validación autorizada mediante cuenta de "
+                "prueba → revisión de roles, datos y dependencias aprobadas."
+            ),
+            "objective": (
+                "Determinar si el alias corresponde realmente a una cuenta "
+                "relacionada con la identidad corporativa, sin asumir que ambas "
+                "cuentas pertenecen a la misma persona."
+            ),
+            "impact": (
+                "Si la relación se confirma y la aplicación presenta permisos "
+                "excesivos o una autorización débil, una cuenta externa podría "
+                "acceder a funciones o datos fuera de su propósito previsto."
+            ),
+            "validation": (
+                "Confirmar la correlación con el responsable de la aplicación. "
+                "No fusionar identidades ni probar credenciales extraídas sin "
+                "autorización explícita."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → corporate identity {identity} → candidate alias "
+                "{aliases} → corroboration against an authorized inventory or "
+                "application owner → identify the authentication mechanism → "
+                "authorized validation using a test account → review roles, "
+                "data and approved dependencies."
+            ),
+            "objective": (
+                "Determine whether the alias truly maps to an account related "
+                "to the corporate identity without assuming both accounts "
+                "belong to the same person."
+            ),
+            "impact": (
+                "If the relationship is confirmed and the application has "
+                "excessive permissions or weak authorization, an external "
+                "account could access functions or data beyond its intended purpose."
+            ),
+            "validation": (
+                "Confirm the correlation with the application owner. Do not merge "
+                "identities or test recovered credentials without explicit authorization."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # Corporate identity associated with an AD FS endpoint
+    # --------------------------------------------------------
+    "potential_corporate_credential_on_adfs": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad corporativa {identity} → endpoint "
+                "AD FS {services} → confirmación del tenant y la relación "
+                "de federación → revisión autorizada de MFA, políticas de "
+                "autenticación, claims y asignaciones → validación controlada "
+                "mediante cuenta de prueba o procedimiento aprobado → revisión "
+                "de recursos accesibles y permisos efectivos."
+            ),
+            "objective": (
+                "Determinar si la identidad y el endpoint pertenecen al mismo "
+                "contexto de autenticación, y evaluar los controles de federación "
+                "y autorización aplicables."
+            ),
+            "impact": (
+                "Si existe una identidad utilizable y los controles de "
+                "autenticación o federación son insuficientes, podría producirse "
+                "acceso no previsto a aplicaciones federadas, sujeto a las "
+                "políticas y asignaciones efectivas."
+            ),
+            "validation": (
+                "Corroborar el contexto con el responsable de identidad. Priorizar "
+                "configuración, registros y cuentas de prueba; cualquier prueba "
+                "de autenticación requiere autorización explícita."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → corporate identity {identity} → AD FS endpoint "
+                "{services} → confirm the tenant and federation relationship "
+                "→ authorized review of MFA, authentication policies, claims "
+                "and assignments → controlled validation using a test account "
+                "or approved procedure → review accessible resources and effective permissions."
+            ),
+            "objective": (
+                "Determine whether the identity and endpoint belong to the same "
+                "authentication context and assess the applicable federation "
+                "and authorization controls."
+            ),
+            "impact": (
+                "If a usable identity exists and authentication or federation "
+                "controls are insufficient, unintended access to federated "
+                "applications may be possible, depending on effective policies and assignments."
+            ),
+            "validation": (
+                "Corroborate the context with the identity owner. Prefer "
+                "configuration, logs and test accounts; authentication testing "
+                "requires explicit authorization."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # External email observed on an in-scope application
+    # --------------------------------------------------------
+    "external_identity_to_in_scope_application": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad externa {identity} → aplicación "
+                "dentro del alcance {services} → identificación del mecanismo "
+                "de autenticación y el propósito de la cuenta → confirmación "
+                "con el responsable de la aplicación → validación autorizada "
+                "con cuenta de prueba → revisión de roles, autorización, "
+                "separación de datos y funciones expuestas."
+            ),
+            "objective": (
+                "Determinar si se espera esa identidad externa en la aplicación "
+                "y si los controles de acceso limitan sus funciones y datos "
+                "al propósito autorizado."
+            ),
+            "impact": (
+                "Una cuenta externa con asignaciones excesivas o una aplicación "
+                "con controles de autorización débiles podría permitir acceso "
+                "a registros o funciones que no corresponden a esa identidad."
+            ),
+            "validation": (
+                "Confirmar con el propietario si la cuenta externa es legítima. "
+                "Usar una cuenta de prueba o evidencia administrativa aprobada "
+                "para evaluar permisos y aislamiento de datos."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → external identity {identity} → in-scope "
+                "application {services} → identify the authentication "
+                "mechanism and account purpose → confirm with the application "
+                "owner → authorized validation using a test account → review "
+                "roles, authorization, data separation and exposed functions."
+            ),
+            "objective": (
+                "Determine whether the external identity is expected on the "
+                "application and whether access controls restrict functions "
+                "and data to the authorized purpose."
+            ),
+            "impact": (
+                "An external account with excessive assignments or weak "
+                "application authorization could access records or functions "
+                "outside the identity's intended scope."
+            ),
+            "validation": (
+                "Confirm with the owner whether the external account is legitimate. "
+                "Use a test account or approved administrative evidence to assess "
+                "permissions and data isolation."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # Non-email identifier observed on an in-scope application
+    # --------------------------------------------------------
+    "identifier_to_in_scope_application": {
+        "es": {
+            "route": (
+                "Registro ULP → identificador observado {identity} → aplicación "
+                "dentro del alcance {services} → resolución de la cuenta en el "
+                "inventario autorizado → identificación del mecanismo de "
+                "autenticación → validación autorizada de su tipo y estado → "
+                "revisión de roles, autorización y acceso a datos."
+            ),
+            "objective": (
+                "Determinar si el identificador corresponde a una cuenta "
+                "reconocida por la aplicación y qué controles regulan sus "
+                "funciones y acceso a información."
+            ),
+            "impact": (
+                "Si el identificador corresponde a una cuenta compartida, de "
+                "servicio o con permisos excesivos, podría existir exposición "
+                "de funciones o datos que no corresponden a su propósito."
+            ),
+            "validation": (
+                "Corroborar el tipo y titularidad con el responsable de la "
+                "aplicación. No asumir que el identificador pertenece a un "
+                "empleado ni que la cuenta esté activa."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → observed identifier {identity} → in-scope "
+                "application {services} → resolve the account against an "
+                "authorized inventory → identify the authentication mechanism "
+                "→ authorized validation of its type and status → review roles, "
+                "authorization and data access."
+            ),
+            "objective": (
+                "Determine whether the identifier maps to a recognized "
+                "application account and which controls govern its functions "
+                "and access to information."
+            ),
+            "impact": (
+                "If the identifier maps to a shared, service or overprivileged "
+                "account, functions or data beyond its intended purpose could "
+                "be exposed."
+            ),
+            "validation": (
+                "Corroborate account type and ownership with the application "
+                "owner. Do not assume that the identifier belongs to an employee "
+                "or that the account is active."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # Corporate identity observed on an in-scope application
+    # --------------------------------------------------------
+    "corporate_identity_to_in_scope_application": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad corporativa {identity} → aplicación "
+                "dentro del alcance {services} → confirmación de la cuenta y "
+                "del mecanismo de autenticación → revisión de roles y permisos "
+                "efectivos → validación autorizada con cuenta de prueba o "
+                "procedimiento aprobado → evaluación de autorización, datos "
+                "accesibles y dependencias de la aplicación."
+            ),
+            "objective": (
+                "Determinar si la identidad mantiene una relación legítima con "
+                "la aplicación y si los privilegios y controles de autorización "
+                "corresponden al propósito de la cuenta."
+            ),
+            "impact": (
+                "Una cuenta vigente con privilegios excesivos o controles de "
+                "autorización insuficientes podría acceder a funciones, registros "
+                "o dependencias que exceden su propósito. La observación no "
+                "demuestra que la identidad sea histórica ni que su titular "
+                "haya dejado la organización."
+            ),
+            "validation": (
+                "Corroborar el estado y la relación con el inventario autorizado "
+                "y el responsable de la aplicación. No inferir desvinculación "
+                "laboral a partir de registros ULP."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → corporate identity {identity} → in-scope "
+                "application {services} → confirm the account and authentication "
+                "mechanism → review effective roles and permissions → authorized "
+                "validation using a test account or approved procedure → assess "
+                "authorization, accessible data and application dependencies."
+            ),
+            "objective": (
+                "Determine whether the identity has a legitimate relationship "
+                "with the application and whether effective privileges and "
+                "authorization controls match the account's purpose."
+            ),
+            "impact": (
+                "A current account with excessive privileges or insufficient "
+                "authorization controls could access functions, records or "
+                "dependencies beyond its intended purpose. The observation "
+                "does not establish historical identity status or employment termination."
+            ),
+            "validation": (
+                "Corroborate account status and relationship with the authorized "
+                "inventory and application owner. Do not infer offboarding from ULP records."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # External identity observed on corporate AD FS
+    # --------------------------------------------------------
+    "external_identity_to_corporate_adfs": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad externa {identity} → endpoint "
+                "corporativo AD FS {services} → confirmación de si corresponde "
+                "a una identidad externa o federada esperada → revisión de "
+                "trusts, claims y políticas de autenticación → validación "
+                "autorizada con cuenta de prueba → evaluación del alcance de "
+                "los recursos que esa identidad podría recibir."
+            ),
+            "objective": (
+                "Determinar si la presencia de la identidad externa es esperada "
+                "y si la configuración de federación limita correctamente las "
+                "identidades, claims y recursos asociados."
+            ),
+            "impact": (
+                "Una relación de federación demasiado amplia o asignaciones "
+                "inadecuadas podrían permitir que una identidad externa recibiera "
+                "acceso no previsto. La evidencia por sí sola no demuestra acceso."
+            ),
+            "validation": (
+                "Verificar configuración y contexto con el responsable de "
+                "identidad. Cualquier prueba de autenticación debe estar "
+                "expresamente autorizada."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → external identity {identity} → corporate AD FS "
+                "endpoint {services} → confirm whether it is an expected "
+                "external or federated identity → review trusts, claims and "
+                "authentication policies → authorized validation with a test "
+                "account → assess the scope of resources the identity could receive."
+            ),
+            "objective": (
+                "Determine whether the external identity is expected and whether "
+                "federation configuration correctly restricts associated "
+                "identities, claims and resources."
+            ),
+            "impact": (
+                "Overly broad federation relationships or inappropriate "
+                "assignments could grant an external identity unintended access. "
+                "The evidence alone does not demonstrate access."
+            ),
+            "validation": (
+                "Verify configuration and context with the identity owner. "
+                "Authentication testing must be explicitly authorized."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # Specific Microsoft identity endpoint scenario
+    # --------------------------------------------------------
+    "microsoft_identity_authentication": {
+        "es": {
+            "title": "Identidad corporativa asociada al inicio de sesión de Microsoft",
+            "route": (
+                "Registro ULP → identidad corporativa {identity} → endpoint "
+                "{services} → confirmación de la cuenta en el tenant autorizado "
+                "→ identificación de aplicaciones, asignaciones y roles "
+                "asociados → revisión de MFA, Acceso Condicional y políticas "
+                "de autenticación → validación autorizada con cuenta de prueba "
+                "o procedimiento aprobado → evaluación de privilegios y recursos "
+                "disponibles → revisión de dependencias adicionales dentro del alcance."
+            ),
+            "objective": (
+                "Determinar si la identidad existe en el tenant autorizado, "
+                "qué aplicaciones y asignaciones le corresponden y si MFA, "
+                "Acceso Condicional y los permisos efectivos limitan el acceso."
+            ),
+            "impact": (
+                "Una identidad vigente con controles de autenticación o "
+                "asignaciones de aplicaciones inadecuados podría acceder a "
+                "recursos adicionales de Microsoft 365 o Entra ID, dependiendo "
+                "de las políticas y permisos efectivos."
+            ),
+            "validation": (
+                "Confirmar la identidad y las asignaciones mediante registros "
+                "administrativos autorizados. Para validar acceso, usar una "
+                "cuenta de prueba o procedimiento aprobado; no asumir que una "
+                "coincidencia ULP confirma una sesión válida."
+            ),
+        },
+        "en": {
+            "title": "Corporate identity associated with Microsoft sign-in",
+            "route": (
+                "ULP record → corporate identity {identity} → endpoint "
+                "{services} → confirm the account in the authorized tenant "
+                "→ identify associated applications, assignments and roles "
+                "→ review MFA, Conditional Access and authentication policies "
+                "→ authorized validation using a test account or approved "
+                "procedure → assess privileges and accessible resources "
+                "→ review additional dependencies within scope."
+            ),
+            "objective": (
+                "Determine whether the identity exists in the authorized tenant, "
+                "which applications and assignments are associated with it, "
+                "and whether MFA, Conditional Access and effective permissions "
+                "restrict access."
+            ),
+            "impact": (
+                "A current identity with unsuitable authentication controls "
+                "or application assignments could access additional Microsoft "
+                "365 or Entra ID resources, depending on effective policies and permissions."
+            ),
+            "validation": (
+                "Confirm the identity and assignments through authorized "
+                "administrative records. Use a test account or approved "
+                "procedure for access validation; a ULP match does not "
+                "confirm a valid session."
+            ),
+        },
+    },
+
+    # --------------------------------------------------------
+    # Fallback for future path types
+    # --------------------------------------------------------
+    "generic": {
+        "es": {
+            "route": (
+                "Registro ULP → identidad o identificador {identity} → "
+                "servicio observado {services} → corroboración de la relación "
+                "con el responsable → identificación de autenticación y "
+                "autorización → validación aprobada dentro del alcance."
+            ),
+            "objective": (
+                "Determinar si la relación observada corresponde a una cuenta "
+                "o dependencia legítima y qué controles efectivos la gobiernan."
+            ),
+            "impact": (
+                "El impacto dependerá de la cuenta, los privilegios y las "
+                "debilidades que puedan confirmarse durante la evaluación."
+            ),
+            "validation": (
+                "Revisar evidencia y configuración con el responsable autorizado. "
+                "No inferir acceso operativo a partir de una correlación."
+            ),
+        },
+        "en": {
+            "route": (
+                "ULP record → observed identity or identifier {identity} → "
+                "observed service {services} → corroborate the relationship "
+                "with its owner → identify authentication and authorization "
+                "controls → approved validation within scope."
+            ),
+            "objective": (
+                "Determine whether the observed relationship maps to a legitimate "
+                "account or dependency and which effective controls govern it."
+            ),
+            "impact": (
+                "Impact depends on the account, privileges and weaknesses "
+                "that may be confirmed during the assessment."
+            ),
+            "validation": (
+                "Review evidence and configuration with the authorized owner. "
+                "Do not infer operational access from correlation alone."
+            ),
+        },
+    },
+}
+
+
 # ============================================================
 # DATA HELPERS
 # ============================================================
@@ -995,18 +1506,37 @@ def _finding_rows(
     return "".join(rows)
 
 
+
+def _service_label(value: Any) -> str:
+    """Remove internal scope prefixes from a service display label."""
+    label = str(value or "").strip()
+
+    if "|" in label:
+        prefix, remainder = label.split("|", 1)
+
+        if prefix.strip().lower() in {
+            "corporate",
+            "third_party",
+            "unknown",
+        }:
+            label = remainder.strip()
+
+    return label or "—"
+
+
 def _path_copy(
     path: Dict[str, Any],
     lang: str,
-) -> Tuple[str, str, str, str]:
+) -> Tuple[str, str, str, str, str]:
     path_type = str(path.get("path_type", ""))
-    spec = PATH_TEXT.get(path_type, {}).get(lang)
+    language = lang if lang in UI else "es"
 
-    services = path.get("services") or []
-    if isinstance(services, str):
-        services = [services]
+    raw_services = path.get("services") or []
 
-    if not services:
+    if isinstance(raw_services, str):
+        raw_services = [raw_services]
+
+    if not raw_services:
         for step in path.get("steps", []) or []:
             if step.get("type") in {
                 "external_service",
@@ -1014,46 +1544,86 @@ def _path_copy(
                 "in_scope_application",
             }:
                 value = step.get("value", [])
-                services.extend(
+                raw_services.extend(
                     value if isinstance(value, list) else [value]
                 )
 
-    services_text = ", ".join(
-        str(value) for value in services if value
-    ) or "—"
+    services = sorted({
+        _service_label(value)
+        for value in raw_services
+        if value
+    })
 
+    services_text = ", ".join(services) or "—"
     identity = str(path.get("identity") or "—")
 
-    if spec:
-        title, narrative, limitations, validation = spec
-        return (
-            title,
-            narrative.format(identity=identity, services=services_text),
-            limitations,
-            validation,
+    aliases = path.get("candidate_usernames") or []
+
+    if isinstance(aliases, str):
+        aliases = [aliases]
+
+    aliases_text = ", ".join(
+        str(value)
+        for value in aliases
+        if value
+    ) or (
+        "alias no determinado" if language == "es"
+        else "alias not identified"
+    )
+
+    # Preserve the established titles in PATH_TEXT where available.
+    title_entry = PATH_TEXT.get(path_type, {}).get(language)
+
+    if title_entry:
+        title = title_entry[0]
+    else:
+        title = str(
+            path.get("title") or UI[language]["attack_path"]
         )
 
-    ui = UI[lang]
+    scenario_key = path_type
+    service_hosts = {
+        _graph_hostname({"service_key": value})
+        for value in raw_services
+        if value
+    }
+
+    microsoft_identity_hosts = {
+        "login.microsoftonline.com",
+        "login.microsoft.com",
+        "login.windows.net",
+        "sts.windows.net",
+    }
+
+    # Specialize the corporate external-service path when the observed
+    # service is a Microsoft identity sign-in endpoint.
+    if (
+        path_type == "observed_corporate_identity_to_external_service"
+        and (service_hosts & microsoft_identity_hosts)
+    ):
+        scenario_key = "microsoft_identity_authentication"
+        title = PATH_SCENARIOS[scenario_key][language]["title"]
+
+    scenario = PATH_SCENARIOS.get(
+        scenario_key,
+        PATH_SCENARIOS["generic"],
+    ).get(
+        language,
+        PATH_SCENARIOS["generic"]["es"],
+    )
+
+    values = {
+        "identity": identity,
+        "services": services_text,
+        "aliases": aliases_text,
+    }
 
     return (
-        str(path.get("title") or ui["attack_path"]),
-        (
-            f"{ui['interpretation']}: {identity} → {services_text}. "
-            + (
-                "La relación requiere revisión." if lang == "es"
-                else "The relationship requires review."
-            )
-        ),
-        (
-            "No hay una plantilla de interpretación configurada para esta relación."
-            if lang == "es"
-            else "No interpretation template is configured for this relationship."
-        ),
-        (
-            "Revisar la evidencia y confirmar el contexto dentro del alcance autorizado."
-            if lang == "es"
-            else "Review the evidence and confirm context within the authorized scope."
-        ),
+        title,
+        scenario["route"].format(**values),
+        scenario["objective"].format(**values),
+        scenario["impact"].format(**values),
+        scenario["validation"].format(**values),
     )
 
 
@@ -1065,7 +1635,14 @@ def _path_rows(
     rows = []
 
     for path in paths[:500]:
-        title, narrative, limitations, validation = _path_copy(path, lang)
+        (
+            title,
+            proposed_route,
+            objective,
+            impact,
+            validation,
+        ) = _path_copy(path, lang)
+
         services = path.get("services") or []
 
         if isinstance(services, str):
@@ -1083,20 +1660,44 @@ def _path_rows(
                         value if isinstance(value, list) else [value]
                     )
 
+        services_text = ", ".join(
+            _service_label(value)
+            for value in services
+            if value
+        ) or "—"
+
         path_type = str(path.get("path_type", ""))
         identity = str(path.get("identity", "—"))
         status = _display(path.get("evidence_status", ""), lang)
+
+        # All content originating from the corpus is HTML-escaped.
+        scenario_html = (
+            '<div class="path-scenario">'
+            '<div class="scenario-block route-block">'
+            f'<b>{_e(ui["proposed_route"])}:</b>'
+            f'<p class="route-chain">{_e(proposed_route)}</p>'
+            '</div>'
+            '<div class="scenario-block">'
+            f'<b>{_e(ui["what_to_prove"])}:</b> '
+            f'{_e(objective)}'
+            '</div>'
+            '<div class="scenario-block">'
+            f'<b>{_e(ui["potential_impact"])}:</b> '
+            f'{_e(impact)}'
+            '</div>'
+            '<div class="scenario-block validation-block">'
+            f'<b>{_e(ui["validation_conditions"])}:</b> '
+            f'{_e(validation)}'
+            '</div>'
+            '</div>'
+        )
 
         rows.append(
             "<tr>"
             f"<td>{_e(title)}<br><small>{_e(path_type)}</small></td>"
             f"<td>{_e(identity)}</td>"
-            f"<td>{_e(', '.join(str(x) for x in services) or '—')}</td>"
-            '<td class="path-copy">'
-            f'{_e(narrative)}<br><small><b>{_e(ui["limitations"])}:</b> '
-            f'{_e(limitations)}</small><br>'
-            f'<small><b>{_e(ui["validation"])}:</b> '
-            f'{_e(validation)}</small></td>'
+            f"<td>{_e(services_text)}</td>"
+            f'<td class="path-copy">{scenario_html}</td>'
             f"<td>{_e(status)}</td>"
             "</tr>"
         )
@@ -1109,9 +1710,66 @@ def _path_rows(
     return "".join(rows)
 
 
+
 # ============================================================
 # IDENTITY/SERVICE GRAPH MODEL
 # ============================================================
+
+def _graph_hostname(record: Dict[str, Any]) -> str:
+    """Return the primary hostname for graph aggregation.
+
+    URL paths, query strings, fragments and ports do not create separate
+    service nodes. The graph represents the hostname/subdomain as the
+    primary application relationship.
+    """
+    raw = str(
+        record.get("service_domain")
+        or record.get("service_key")
+        or ""
+    ).strip()
+
+    if not raw:
+        return ""
+
+    # Some service keys may include a scope prefix, for example:
+    # third_party|bancaporinternet.interbank.pe/login
+    if "|" in raw and "://" not in raw:
+        prefix, remainder = raw.split("|", 1)
+
+        if prefix.strip().lower() in {
+            "corporate",
+            "third_party",
+            "unknown",
+        }:
+            raw = remainder.strip()
+
+    # urlsplit needs a scheme or a leading // to parse a hostname.
+    parse_value = (
+        raw if "://" in raw
+        else "//" + raw.lstrip("/")
+    )
+
+    try:
+        parsed = urlsplit(parse_value)
+        hostname = parsed.hostname or ""
+    except ValueError:
+        hostname = ""
+
+    if not hostname:
+        # Conservative fallback for malformed service values.
+        hostname = (
+            raw.split("/", 1)[0]
+            .split("?", 1)[0]
+            .split("#", 1)[0]
+        )
+
+        if "@" in hostname:
+            hostname = hostname.rsplit("@", 1)[-1]
+
+        if ":" in hostname and not hostname.startswith("["):
+            hostname = hostname.split(":", 1)[0]
+
+    return hostname.strip().lower().rstrip(".")
 
 
 def _graph_model(
@@ -1160,12 +1818,8 @@ def _graph_model(
         identity = str(
             record.get("identity", "")
         ).strip().lower()
-
-        host = str(
-            record.get("service_domain")
-            or record.get("service_key")
-            or ""
-        ).strip().lower().rstrip(".")
+		
+        host = _graph_hostname(record)
 
         # FIX 1: initialize scope before using it.
         scope = str(
@@ -1219,7 +1873,9 @@ def _graph_model(
         if not include:
             continue
 
-        # 4. Preserve endpoint distinctions where port/path are available.
+
+        # 4. Aggregate URLs by hostname/subdomain.
+        # Different paths on the same host become one graph node.
         service_path = str(
             record.get("service_path", "")
         ).strip()
@@ -1228,29 +1884,9 @@ def _graph_model(
             record.get("service_port", "") or ""
         ).strip()
 
-        if service_path == "/":
-            service_path = ""
-
-        if service_path and not service_path.startswith("/"):
-            service_path = "/" + service_path
-
-        endpoint = host
-
-        if service_port and not endpoint.endswith(
-            f":{service_port}"
-        ):
-            endpoint = f"{endpoint}:{service_port}"
-
-        if service_path and not endpoint.endswith(service_path):
-            endpoint = endpoint + service_path
-
-        # The key includes scope, host, port and path so that two endpoints
-        # on one host can be represented independently in the graph.
-        service_key = (
-            f"{scope}|{host}"
-            + (f":{service_port}" if service_port else "")
-            + service_path
-        )
+        # The port/path are retained as metadata for traceability,
+        # but are deliberately excluded from the graph-node key.
+        service_key = f"{scope}|{host}"
 
         evidence_ids = _record_evidence(record)
 
@@ -1258,10 +1894,12 @@ def _graph_model(
             service_key,
             {
                 "key": service_key,
-                "host": endpoint,
+                "host": host,
                 "domain": host,
-                "port": service_port,
-                "path": service_path,
+                "port": "",
+                "path": "",
+                "paths": set(),
+                "ports": set(),
                 "scope": scope,
                 "identities": set(),
                 "evidence": set(),
@@ -1269,9 +1907,16 @@ def _graph_model(
             },
         )
 
+        if service_path and service_path != "/":
+            service["paths"].add(service_path)
+
+        if service_port:
+            service["ports"].add(service_port)
+
         service["identities"].add(identity)
         service["evidence"].update(evidence_ids)
         service["records"] += 1
+
 
         # 5. Aggregate the observed identity profile.
         ident = identity_meta.setdefault(
@@ -2093,7 +2738,38 @@ td,th{padding:10px;border-bottom:1px solid var(--border);
 th{color:var(--muted)}
 .rule-table{min-width:1040px}
 .finding-table,.path-table{min-width:900px}
-.path-copy{min-width:340px;max-width:650px;line-height:1.55}
+.path-copy{
+  min-width:460px;
+  max-width:760px;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
+.path-scenario{
+  display:grid;
+  gap:12px;
+}
+.scenario-block{
+  padding:0 0 10px;
+  border-bottom:1px solid #263751;
+}
+.scenario-block:last-child{
+  padding-bottom:0;
+  border-bottom:0;
+}
+.scenario-block b{
+  color:#9ecdf5;
+  font-size:12px;
+}
+.route-chain{
+  margin:7px 0 0;
+  color:#e7eef8;
+  line-height:1.8;
+  overflow-wrap:anywhere;
+}
+.validation-block{
+  color:#b9c8d9;
+  font-size:12px;
+}
 .rule-table tr:target{background:#24354c}
 nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
 nav a{color:#a9d8fa;text-decoration:none;border:1px solid var(--border);
