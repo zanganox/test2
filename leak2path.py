@@ -570,19 +570,29 @@ def parsed_record_is_target_related(
     return line_has_target_context(line, target, target_root)
 
 
+
 def parse_record(
     line: str,
     target: str = "",
 ) -> Optional[Dict[str, str]]:
     """
+    Parse credential records with explicit service and identity fields.
+
     Supported formats:
       EMAIL:VALUE
+      EMAIL:VALUE https://service.example/login
+      EMAIL:VALUE | https://service.example/login
+      EMAIL:VALUE:https://service.example/login
+      EMAIL VALUE https://service.example/login
       SERVICE:EMAIL:VALUE
-      SERVICE|EMAIL|VALUE
       VALUE:SERVICE:EMAIL
       URL:USERNAME:VALUE
+      SERVICE USERNAME VALUE
+      SERVICE:USERNAME|VALUE
+      SERVICE|USERNAME|VALUE
 
-    Secret contents may include punctuation and colons.
+    Secret values are retained in RAW and in the parser's internal result.
+    Downstream structured outputs must continue excluding plaintext secrets.
     """
     candidate = clean_line(line).strip()
 
@@ -604,118 +614,41 @@ def parse_record(
         flags=re.I,
     ).strip()
 
-    # First: EMAIL:VALUE. The service remains explicitly unknown.
-    simple = re.match(
-        r"^(?P<identity>[^:|]+?)\s*[:|]\s*(?P<secret>.+)$",
-        candidate,
-        flags=re.S,
-    )
+    def make_record(
+        service: str,
+        username: str,
+        password: str,
+        source_format: str,
+    ) -> Dict[str, str]:
+        password = remove_trailing_noise(password)
 
-    if simple:
-        possible_email = simple.group("identity").strip()
-        secret = simple.group("secret")
-
-        if (
-            EMAIL_RE.fullmatch(possible_email)
-            and not invalid_password(secret)
-        ):
-            return {
-                "service": "",
-                "username": possible_email.lower(),
-                "password": secret,
-                "source_format": "email_value",
-                "credential_material_type": classify_credential_material(
-                    secret
-                ),
-            }
-
-    email_match = select_record_email(candidate, target)
-
-    if email_match:
-        email = email_match.group(1).strip().lower()
-        left = candidate[:email_match.start()].rstrip(" :|")
-        right = candidate[email_match.end():].lstrip(" :|")
-
-        # SERVICE:EMAIL:VALUE
-        if left and right:
-            secret = remove_trailing_noise(right)
-
-            if not invalid_password(secret):
-                return {
-                    "service": left,
-                    "username": email,
-                    "password": secret,
-                    "source_format": "service_email_value",
-                    "credential_material_type": classify_credential_material(
-                        secret
-                    ),
-                }
-
-        # VALUE:SERVICE:EMAIL
-        parts = re.split(r"\s*[:|]\s*", left, maxsplit=1)
-
-        if len(parts) == 2:
-            secret, service = parts[0].strip(), parts[1].strip()
-            secret = remove_trailing_noise(secret)
-
-            if (
-                secret
-                and service
-                and not invalid_password(secret)
-                and not invalid_service(service)
-            ):
-                return {
-                    "service": service,
-                    "username": email,
-                    "password": secret,
-                    "source_format": "value_service_email",
-                    "credential_material_type": classify_credential_material(
-                        secret
-                    ),
-                }
-
-        return None
-
-    # URL/service:username:value. Try separator positions conservatively.
-    separators = [
-        i for i, char in enumerate(candidate)
-        if char in ":|"
-    ]
-
-    for first in separators:
-        service = candidate[:first].strip()
-
-        if not service or service.lower() in {
-            "http", "https", "ftp", "ftps",
-        }:
-            continue
-
-        remainder = candidate[first + 1:]
-        second_rel = next(
-            (
-                i for i, char in enumerate(remainder)
-                if char in ":|"
+        return {
+            "service": service.strip(),
+            "username": username.strip().lower(),
+            "password": password,
+            "source_format": source_format,
+            "credential_material_type": classify_credential_material(
+                password
             ),
-            -1,
+        }
+
+    def valid_service(service: str) -> bool:
+        host, _, _ = parse_service(service)
+
+        return bool(
+            host
+            and looks_like_hostname(host)
         )
 
-        if second_rel < 0:
-            continue
+    def valid_username(username: str) -> bool:
+        username = username.strip()
 
-        username = remainder[:second_rel].strip()
-        secret = remove_trailing_noise(
-            remainder[second_rel + 1:].strip()
-        )
-        service_host, _, _ = parse_service(service)
-
-        valid_service = bool(
-            service_host and looks_like_hostname(service_host)
-        )
-        valid_username = (
-            bool(username)
+        return bool(
+            username
             and not any(ch.isspace() for ch in username)
             and "/" not in username
             and "|" not in username
+            and ":" not in username
             and not re.match(
                 r"^[a-z][a-z0-9+.-]*://",
                 username,
@@ -723,22 +656,217 @@ def parse_record(
             )
         )
 
+    # --------------------------------------------------------
+    # 1. Email identity records.
+    #
+    # IMPORTANT: detect a trailing service URL before treating the
+    # entire substring after EMAIL: as the credential value.
+    # This fixes the unknown-service regression.
+    # --------------------------------------------------------
+    email_match = select_record_email(candidate, target)
+
+    if email_match:
+        email = email_match.group(1).strip().lower()
+
+        left = (
+            candidate[:email_match.start()]
+            .strip()
+            .rstrip(" :|")
+        )
+
+        suffix = candidate[email_match.end():]
+
+        # URL following the email and candidate credential value.
+        # Stops at whitespace, pipe and common markup delimiters.
+        url_match = re.search(
+            r"""https?://[^\s|<>"']+""",
+            suffix,
+            flags=re.I,
+        )
+
+        if url_match:
+            secret_before_url = suffix[:url_match.start()].strip(
+                " \t:|"
+            )
+
+            service_url = url_match.group(0).rstrip(",;")
+
+            # An URL without a preceding credential value is not
+            # interpreted as a password.
+            if not secret_before_url:
+                return None
+
+            if (
+                valid_service(service_url)
+                and not invalid_password(secret_before_url)
+            ):
+                return make_record(
+                    service=service_url,
+                    username=email,
+                    password=secret_before_url,
+                    source_format="email_value_trailing_url",
+                )
+
+            # Do not absorb the URL into the credential value if its
+            # host could not be validated.
+            right = secret_before_url
+
+        else:
+            right = suffix.strip().lstrip(" \t:|")
+
+        # SERVICE:EMAIL:VALUE
+        #
+        # Preserve this format when a service precedes the email.
+        if left and right:
+            if not invalid_password(right):
+                return make_record(
+                    service=left,
+                    username=email,
+                    password=right,
+                    source_format="service_email_value",
+                )
+
+        # VALUE:SERVICE:EMAIL
+        #
+        # The email is at the end, so the left side contains the
+        # candidate value and its service separated by ':' or '|'.
+        if left and not right:
+            parts = re.split(
+                r"\s*[:|]\s*",
+                left,
+                maxsplit=1,
+            )
+
+            if len(parts) == 2:
+                secret, service = (
+                    parts[0].strip(),
+                    parts[1].strip(),
+                )
+
+                if (
+                    secret
+                    and service
+                    and not invalid_password(secret)
+                    and not invalid_service(service)
+                ):
+                    return make_record(
+                        service=service,
+                        username=email,
+                        password=secret,
+                        source_format="value_service_email",
+                    )
+
+        # EMAIL:VALUE, with no explicit service.
+        #
+        # This is the intentional fallback for a genuine unscoped
+        # credential pair. It is used only after checking for a URL.
+        if not left and right:
+            if (
+                not re.match(r"^https?://", right, re.I)
+                and not invalid_password(right)
+            ):
+                return make_record(
+                    service="",
+                    username=email,
+                    password=right,
+                    source_format="email_value",
+                )
+
+        return None
+
+    # --------------------------------------------------------
+    # 2. Whitespace-separated SERVICE USERNAME VALUE.
+    #
+    # Example shape:
+    #   service.example/login account123 candidate-value
+    #
+    # The service must parse as a valid hostname. The first token
+    # after the service is the username; the rest is the value.
+    # --------------------------------------------------------
+    whitespace_match = re.match(
+        r"^(?P<service>\S+)"
+        r"\s+"
+        r"(?P<username>\S+)"
+        r"\s+"
+        r"(?P<secret>.+?)\s*$",
+        candidate,
+        flags=re.S,
+    )
+
+    if whitespace_match:
+        service = whitespace_match.group("service").strip()
+        username = whitespace_match.group("username").strip()
+        secret = whitespace_match.group("secret").strip()
+
         if (
-            valid_service
-            and valid_username
+            valid_service(service)
+            and valid_username(username)
             and not invalid_password(secret)
         ):
-            return {
-                "service": service,
-                "username": username.lower(),
-                "password": secret,
-                "source_format": "service_username_value",
-                "credential_material_type": classify_credential_material(
-                    secret
-                ),
-            }
+            return make_record(
+                service=service,
+                username=username,
+                password=secret,
+                source_format="service_username_value_whitespace",
+            )
+
+    # --------------------------------------------------------
+    # 3. URL/SERVICE:USERNAME:VALUE or URL/SERVICE|USERNAME|VALUE.
+    #
+    # Try each separator instead of assuming that the first colon
+    # belongs to the credential format. This supports URL schemes
+    # such as https:// and colons inside credential values.
+    # --------------------------------------------------------
+    separators = [
+        index
+        for index, character in enumerate(candidate)
+        if character in ":|"
+    ]
+
+    for first in separators:
+        service = candidate[:first].strip()
+
+        if not service or service.lower() in {
+            "http",
+            "https",
+            "ftp",
+            "ftps",
+        }:
+            continue
+
+        remainder = candidate[first + 1:]
+
+        second_relative = next(
+            (
+                index
+                for index, character in enumerate(remainder)
+                if character in ":|"
+            ),
+            -1,
+        )
+
+        if second_relative < 0:
+            continue
+
+        username = remainder[:second_relative].strip()
+
+        secret = remainder[second_relative + 1:].strip()
+        secret = remove_trailing_noise(secret)
+
+        if (
+            valid_service(service)
+            and valid_username(username)
+            and not invalid_password(secret)
+        ):
+            return make_record(
+                service=service,
+                username=username,
+                password=secret,
+                source_format="service_username_value",
+            )
 
     return None
+
 
 
 # ============================================================
